@@ -54,13 +54,12 @@
        (string/split-lines)
        (reduce reduce-fn {:headers [] :transactions []})))
 
-(defn accounts
-  ([transactions] (accounts transactions {}))
-  ([transactions options]
-   (->> transactions
-        (map :account)
-        (distinct)
-        (sort))))
+(defn accounts [journal]
+  (->> (:transactions journal)
+      (mapcat :postings)
+      (map :account)
+      (distinct)
+      (sort)))
 
 (defn map-vals [f m]
   (into {} (for [[k v] m] [k (f v)])))
@@ -68,8 +67,9 @@
 (defn sum-amounts [amounts]
   (apply + amounts))
 
-(defn balancesheet [transactions]
-  (->> transactions
+(defn balancesheet [journal]
+  (->> (:transactions journal)
+       (mapcat :postings)
        (group-by :account)
        (map-vals #(map :amount %))
        (map-vals sum-amounts)))
