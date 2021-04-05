@@ -2,15 +2,6 @@
   (:require [clojure.string :as string]
             [clojure.edn :as edn]))
 
-(defn make-transaction [data]
-  (select-keys data [:date :description :postings]))
-
-(defn make-posting [data]
-  (select-keys data [:account :amount]))
-
-(def x "2021/04/01 Auto voor naar H&F")
-(def y "expenses:recreation:covid 20 EUR")
-
 (defn parse-include-line [line]
   (if-let [[_ file-name] (re-matches #"include (\S+)" line)]
     {:include file-name}))
@@ -38,63 +29,30 @@
     true
     false))
 
-(defn parse-line [line]
-  ((some-fn parse-include-line parse-commodity-line parse-transaction-header parse-posting) line))
+(defn add-transaction [journal t]
+  (update journal :transactions conj t))
 
-(defn transaction-header? [data]
-  (and (:date data) (:description data)))
+(defn add-posting [journal p]
+  "Add posting p to last transaction of journal. Throws exception if there is no last transaction."
+  (let [transactions (:transactions journal)
+        last-transaction (peek transactions)
+        new-transaction (update last-transaction :postings conj p)]
+        (assoc journal :transactions (conj (pop transactions) new-transaction))))
 
-(defn reduce-fn [acc lines]
-  (let [line (first lines)]
-    (if (nil? line)
-      acc
-      (if (transaction-header? line)
-        (update acc :transactions conj lines)
-        (update acc :header conj lines)))))
+(defn reduce-fn [acc line]
+  (if-let [header ((some-fn parse-include-line parse-commodity-line) line)]
+    (update acc :headers conj header)
+    (if-let [transaction-header (parse-transaction-header line)]
+      (add-transaction acc transaction-header)
+      (if-let [posting (parse-posting line)]
+        (add-posting acc posting)
+        acc))))
 
 (defn read-ledger-file [file-name]
   (->> file-name
        (slurp)
        (string/split-lines)
-       (map parse-line)
-       (partition-by nil?)
        (reduce reduce-fn {:headers [] :transactions []})))
-
-(defn reduce-fn* [acc line]
-  (if-let [header ((some-fn parse-include-line parse-commodity-line) line)]
-      (update acc :headers conj header)
-      (if-let [transaction-header (parse-transaction-header line)]
-        (if-let [current (:current-transaction acc)]
-          (-> acc
-              (update :transactions conj (:current-transaction acc))
-              (assoc :current-transaction transaction-header))
-          (assoc acc :current-transaction transaction-header))
-        (if-let [posting (parse-posting line)]
-          (if (:postings (:current-transaction acc))
-            (update-in acc [:current-transaction :postings] conj posting)
-            (assoc-in acc [:current-transaction :postings] [posting]))
-          acc))))
-
-(reduce reduce-fn* {:headers [] :transactions []}
-        ["include beleggingen.journal"
-         "include huis.journal"
-         "commodity 100.00 EUR"
-         ""
-         "2020/12/31 Opening balances"
-         "    equity:opening-balances  -11.98 EUR"
-         "    assets:bank:degiro        11.98 EUR"
-         ""
-         "2020/12/31 Opening balances"])
-
-(let [file-name "2021.journal"]
-  (->> file-name
-       (slurp)
-       (string/split-lines)
-       (reduce reduce-fn* {:headers [] :transactions []})))
-
-(def transactions
-  [{:account "expenses:recreation:covid" :amount 30} {:account "expenses:recreation" :amount 20} {:account "income" :amount 10}
-   {:account "expenses:recreation" :amount 10}])
 
 (defn accounts
   ([transactions] (accounts transactions {}))
