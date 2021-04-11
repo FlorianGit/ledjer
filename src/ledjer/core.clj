@@ -52,19 +52,9 @@
      ["assets:checking" -0.80]]]])
 
 
-(def dummy-transactions
-  (->> data
-       (cmap [#(local-date "yyyy/MM/dd" %) identity identity])
-       (map (partial apply make-transaction))))
-
 (defn monthly [transactions]
   (->> transactions
-       (group-by #(as (:date %) :year :month-of-year))
-       (cmap [(partial apply local-date) identity])))
-
-(->> dummy-transactions
-     (monthly)
-     (cmap [identity balancesheet]))
+       (group-by #(as (:date %) :year :month-of-year))))
 
 (defn display-report [data]
   (print (string/join "\n" data)))
