@@ -90,5 +90,5 @@
 
   (->> transactions
        (monthly)
-       (fmap [identity balancesheet])))
-       (cmap [identity report-column->string])
+       (fmap balancesheet)
+       (fmap report-column->string)))
