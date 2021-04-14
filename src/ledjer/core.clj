@@ -72,13 +72,12 @@
       (parser/read-ledger-file)
       (:transactions)))
 
-(let [transactions
-      (-> "2021.journal"
-          (slurp)
-          (parser/read-ledger-file)
-          (:transactions))]
-
+(defn by-account [transactions]
   (->> transactions
-       (monthly)
-       (fmap balancesheet)
-       (fmap report-column->string)))
+       (mapcat (fn [{date :date
+                     description :description
+                     postings :postings}]
+                 (for [p postings]
+                   (let [{account :account amount :amount} p]
+                     {account [{:date date :description description :amount amount}]}))))
+       (apply merge-with into)))
