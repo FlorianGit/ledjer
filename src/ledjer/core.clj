@@ -3,7 +3,7 @@
             [clojure.string :as string]
             [ledjer.parser :as parser]
             [lentes.core :as l]
-            [java-time :refer [local-date as]]))
+            [java-time :refer [local-date-time local-date as truncate-to]]))
 
 (defn accounts [journal]
   (->> (:transactions journal)
@@ -14,11 +14,17 @@
 
 (defn balancesheet [transactions]
   (->> transactions
-       (mapcat :postings)
-       (group-by :account)
        (fmap (partial map :amount))
-       (fmap (partial apply +))
-       (sort)))
+       (fmap (partial apply +))))
+
+
+(let [transactions 
+      (-> "2021.journal"
+          (slurp)
+          (parser/read-ledger-file)
+          (:transactions))]
+  (->> transactions
+       (balancesheet)))
 
 (defn make-posting [account amount]
   {:account account :amount amount})
@@ -72,12 +78,44 @@
       (parser/read-ledger-file)
       (:transactions)))
 
-(defn by-account [transactions]
+(defn account-view [transactions]
   (->> transactions
        (mapcat (fn [{date :date
                      description :description
                      postings :postings}]
                  (for [p postings]
-                   (let [{account :account amount :amount} p]
-                     {account [{:date date :description description :amount amount}]}))))
+                   (let [{ account :account} p]
+                     {account [(assoc p :date date :description description)]}))))
        (apply merge-with into)))
+
+(defn lpad [length s]
+  (format (str "%" length "s") s))
+
+(defn rpad [length s]
+  (format (str "%-" length "s") s))
+
+(defn report [transactions]
+  "Build a report of the transactions"
+  (->> transactions
+       (account-view)
+       (fmap monthly)
+       (fmap balancesheet)
+       (mapcat (fn [[account values]]
+                 (for [[header data] values]
+                   {[account header] data})))
+       (apply merge-with into)))
+
+(let [report (report transactions)]
+  (let [accounts (distinct (map first (keys report)))
+        accounts-length (apply max (map count accounts))
+        columns (distinct (map second (keys report)))
+        column-lengths (into {} (for [c columns] [c (->> accounts
+                                             (mapv #(get report [% c]))
+                                             (map #(count (str %)))
+                                             (apply max))]))]
+    (for [a (sort accounts)]
+      (str (rpad accounts-length a)
+      (apply str (for [c columns]
+        (lpad (inc (get column-lengths c)) (if-let [amount (get report [a c])]
+                                            (str amount)
+                                            ""))))))))
