@@ -119,3 +119,19 @@
         (lpad (inc (get column-lengths c)) (if-let [amount (get report [a c])]
                                             (str amount)
                                             ""))))))))
+
+(defn transpose [m]
+  (apply mapv vector m))
+
+(defn matrixmap [f m]
+  (mapv (partial mapv f) m))
+
+(defn table->string [data]
+  "Converts a vector of vectors (a vector of rows) to a string representation"
+  (let [columns (transpose data)
+        widths (->> columns
+                    (matrixmap str)
+                    (matrixmap count)
+                    (mapv (partial apply max)))]
+    (string/join \newline (for [row data]
+                        (string/join " | " (mapv rpad widths row))))))
