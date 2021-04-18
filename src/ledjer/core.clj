@@ -45,17 +45,17 @@
 
 (def data
   [["2021/01/01" "Buy an apple"
-    [["expenses:groceries" 0.45]
-     ["assets:checking" -0.45]]]
+    [["expenses:groceries" 0.45M]
+     ["assets:checking" -0.45M]]]
    ["2021/01/15" "Buy a lemon"
-    [["expenses:lemons" 0.30]
-     ["assets:checking" -0.30]]]
+    [["expenses:lemons" 0.30M]
+     ["assets:checking" -0.30M]]]
    ["2021/02/01" "Buy another apple"
-    [["expenses:groceries" 0.45]
-     ["assets:checking" -0.45]]]
+    [["expenses:groceries" 0.45M]
+     ["assets:checking" -0.45M]]]
    ["2021/02/03" "Buy a red grapefruit"
-    [["expenses:grapegruits" 0.80]
-     ["assets:checking" -0.80]]]])
+    [["expenses:grapegruits" 0.80M]
+     ["assets:checking" -0.80M]]]])
 
 
 (defn monthly [transactions]

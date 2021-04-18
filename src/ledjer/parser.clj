@@ -31,7 +31,7 @@
 (defn parse-posting [x]
   (if-let [[_ account amount]
         (re-matches #"\s*([\S:]+)\s+(.*) EUR" x)]
-    {:account account :amount (edn/read-string amount)}))
+    {:account account :amount (bigdec (edn/read-string amount))}))
 
 (defn parse-account-name [x]
   (if-let [matches (re-seq #"(\w+)" x)]
