@@ -120,18 +120,50 @@
                                             (str amount)
                                             ""))))))))
 
+(defn report->table [report]
+  (let [accounts (distinct (map first (keys report)))
+        columns (distinct (map second (keys report)))]
+    (into [(into [""] (sort columns))]
+    (for [a (sort accounts)]
+      (into [a] (for [c (sort columns)]
+                  (get report [a c] "")))))))
+
 (defn transpose [m]
   (apply mapv vector m))
 
 (defn matrixmap [f m]
   (mapv (partial mapv f) m))
 
-(defn table->string [data]
-  "Converts a vector of vectors (a vector of rows) to a string representation"
-  (let [columns (transpose data)
-        widths (->> columns
-                    (matrixmap str)
+(comment
+  (defn table->string [data]
+    "Converts a vector of vectors (a vector of rows) to a string representation"
+    (let [columns (transpose data)
+          widths (->> columns
+                      (matrixmap str)
+                      (matrixmap count)
+                      (mapv (partial apply max)))]
+      (string/join \newline (for [row data]
+                              (string/join " | " (mapv rpad widths row))))))
+  
+  )
+
+(defn table->string [rheaders cheaders data]
+  (let [first-width (->> rheaders
+                         (mapv count)
+                         (apply max))
+        padded-rheaders (->> rheaders
+                             (mapv (partial rpad first-width)))
+        str-data (matrixmap str data)
+        widths (->> str-data
+                    (transpose)
                     (matrixmap count)
-                    (mapv (partial apply max)))]
-    (string/join \newline (for [row data]
-                        (string/join " | " (mapv rpad widths row))))))
+                    (mapv (partial apply max)))
+        padded-data (->> str-data
+                         (mapv (fn [row]
+                                 (mapv lpad widths row))))
+        first-row (into [(lpad first-width "")] (mapv rpad widths cheaders))
+        rows (mapv (fn [rh row]
+                     (into [rh] row))
+                   padded-rheaders padded-data)
+        ]
+    (string/join "\n" (mapv (partial string/join " | ") (into [first-row] rows)))))
