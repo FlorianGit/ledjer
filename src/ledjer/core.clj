@@ -71,14 +71,6 @@
        (fmap (partial apply +))))
 
 
-(let [transactions 
-      (-> "2021.journal"
-          (slurp)
-          (read-ledger-file)
-          (:transactions))]
-  (->> transactions
-       (balancesheet)))
-
 (defn make-posting [account amount]
   {:account account :amount amount})
 
