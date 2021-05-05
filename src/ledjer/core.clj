@@ -62,16 +62,6 @@
   (->> transactions
        (group-by #(as (:date %) :year :month-of-year))))
 
-(defn display-report [data]
-  (print (string/join "\n" data)))
-
-(defn report-column->string [data]
-  (->> data
-       (mapv #(string/join " " %))
-       (string/join "\n")))
-
-(report-column->string [["expenses:grapefruits" 200] ["expenses:lemons" 100] ["assets:checking" -300]])
-
 (def transactions
   (-> "2021.journal"
       (slurp)
@@ -117,16 +107,8 @@
       (str (rpad accounts-length a)
       (apply str (for [c columns]
         (lpad (inc (get column-lengths c)) (if-let [amount (get report [a c])]
-                                            (str amount)
-                                            ""))))))))
-
-(defn report->table [report]
-  (let [accounts (distinct (map first (keys report)))
-        columns (distinct (map second (keys report)))]
-    (into [(into [""] (sort columns))]
-    (for [a (sort accounts)]
-      (into [a] (for [c (sort columns)]
-                  (get report [a c] "")))))))
+                                             (str amount)
+                                             ""))))))))
 
 (defn transpose [m]
   (apply mapv vector m))
