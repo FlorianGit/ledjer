@@ -184,22 +184,12 @@
       {:action (first arguments) :options options}
       :else {:ok? false :exit-message (usage options)})))
 
-(defn accounts! [options]
-  (let [file-name (or ( :file options)
-                      (env :ledjer-file))
-        journal (-> file-name
-                    (slurp)
-                    (read-ledger-file))
-        report (accounts journal)]
+(defn accounts! [journal options]
+  (let [report (accounts journal)]
     (println (string/join "\n" report))))
 
-(defn balancesheet! [options]
-  (let [file-name (or (:file options)
-                      (env :ledjer-file))
-        journal (-> file-name
-                         (slurp)
-                         (read-ledger-file))
-        report (->> (:transactions journal)
+(defn balancesheet! [journal options]
+  (let [report (->> (:transactions journal)
                     (make-report balancesheet))
         rheaders (sort (distinct (map first (keys report))))
         cheaders (sort (distinct (map second (keys report))))
@@ -216,6 +206,11 @@
   (let [{:keys [action options exit-message ok?]} (validate-args args)]
     (if exit-message
       (exit (if ok? 1 0) exit-message)
-      (cond 
-        (#{"accounts"} action) (accounts! options)
-        (#{"balancesheet" "bs"} action) (balancesheet! options)))))
+      (let [file-name (or (:file options)
+                          (env :ledjer-file))
+            journal (-> file-name
+                        (slurp)
+                        (read-ledger-file))]
+        (cond
+          (#{"accounts"} action) (accounts! journal options)
+          (#{"balancesheet" "bs"} action) (balancesheet! journal options))))))
