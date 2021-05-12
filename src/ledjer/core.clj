@@ -2,8 +2,11 @@
   (:require [clojure.algo.generic.functor :refer [fmap]]
             [clojure.edn :as edn]
             [clojure.string :as string]
+            [clojure.tools.cli :refer [parse-opts]]
+            [environ.core :refer [env]]
             [lentes.core :as l]
-            [java-time :refer [local-date-time local-date as truncate-to]]))
+            [java-time :refer [local-date-time local-date as truncate-to]])
+  (:gen-class))
 
 (defn add-transaction [journal t]
   (update journal :transactions conj t))
@@ -129,31 +132,18 @@
 (defn rpad [length s]
   (format (str "%-" length "s") s))
 
-(defn report [transactions]
-  "Build a report of the transactions"
-  (->> transactions
-       (account-view)
-       (fmap monthly)
-       (fmap balancesheet)
-       (mapcat (fn [[account values]]
-                 (for [[header data] values]
-                   {[account header] data})))
-       (apply merge-with into)))
-
-(let [report (report transactions)]
-  (let [accounts (distinct (map first (keys report)))
-        accounts-length (apply max (map count accounts))
-        columns (distinct (map second (keys report)))
-        column-lengths (into {} (for [c columns] [c (->> accounts
-                                             (mapv #(get report [% c]))
-                                             (map #(count (str %)))
-                                             (apply max))]))]
-    (for [a (sort accounts)]
-      (str (rpad accounts-length a)
-      (apply str (for [c columns]
-        (lpad (inc (get column-lengths c)) (if-let [amount (get report [a c])]
-                                             (str amount)
-                                             ""))))))))
+(defn make-report
+  "Build a make-report of the transactions. Output format is a map with [account period] as key and the aggregated value as value."
+  ([transactions] (make-report balancesheet transactions))
+  ([make-report-fn transactions]
+   (->> transactions
+        (account-view)
+        (fmap monthly)
+        (fmap make-report-fn)
+        (mapcat (fn [[account values]]
+                  (for [[header data] values]
+                    {[account header] data})))
+        (apply merge-with into))))
 
 (defn transpose [m]
   (apply mapv vector m))
@@ -194,3 +184,71 @@
                    padded-rheaders padded-data)
         ]
     (string/join "\n" (mapv (partial string/join " | ") (into [first-row] rows)))))
+
+(def cli-options
+  [["-f" "--file NAME" "File name to use" ]
+   ["-h" "--help"]])
+
+(defn error-msg [errors]
+  (str "The following errors occurred while parsing the arguments:"
+       (string/join \newline errors)))
+
+(defn usage [options-summary]
+  (->> ["This is ledjer. Ledjer is a cli-bookkeeping program based on programs like ledger and hledger,"
+        "implemented in Clojure."
+        "It's more a learning project that meant for regular use."
+        ""
+        "Options:"
+        options-summary
+        ""
+        "Actions:"
+        "  balancesheet    Display a balancesheet"
+        ""
+        "Please refer to the source code for more information ;-)"]
+       (string/join \newline)))
+
+(defn validate-args [args]
+  (let [{:keys [options arguments errors summary]} (parse-opts args cli-options)]
+    (cond
+      (:help options) {:ok? true :exit-message "help!"}
+      errors {:ok? false :exit-message "error"}
+      (and (= 1 (count arguments))
+           (#{"accounts" "balancesheet" "bs"} (first arguments)))
+      {:action (first arguments) :options options}
+      :else {:ok? false :exit-message (usage options)})))
+
+(defn accounts! [options]
+  (let [file-name (or ( :file options)
+                      (env :ledjer-file))
+        journal (-> file-name
+                    (slurp)
+                    (read-ledger-file))
+        report (accounts journal)]
+    (println (string/join "\n" report))))
+
+(defn balancesheet! [options]
+  (let [file-name (or (:file options)
+                      (env :ledjer-file))
+        journal (-> file-name
+                         (slurp)
+                         (read-ledger-file))
+        report (->> (:transactions journal)
+                    (make-report balancesheet))
+        rheaders (sort (distinct (map first (keys report))))
+        cheaders (sort (distinct (map second (keys report))))
+        data (for [rh rheaders]
+               (for [ch cheaders]
+                 (get report [rh ch])))]
+    (println (table->string rheaders cheaders data))))
+
+(defn exit [status msg]
+  (println msg)
+  (System/exit status))
+
+(defn -main [& args]
+  (let [{:keys [action options exit-message ok?]} (validate-args args)]
+    (if exit-message
+      (exit (if ok? 1 0) exit-message)
+      (cond 
+        (#{"accounts"} action) (accounts! options)
+        (#{"balancesheet" "bs"} action) (balancesheet! options)))))
