@@ -16,7 +16,7 @@
   (let [transactions (:transactions journal)
         last-transaction (peek transactions)
         new-transaction (update last-transaction :postings conj p)]
-        (assoc journal :transactions (conj (pop transactions) new-transaction))))
+        (if last-transaction (assoc journal :transactions (conj (pop transactions) new-transaction)))))
 
 
 (defn parse-include-line [line]
@@ -26,6 +26,10 @@
 (defn parse-commodity-line [line]
   (if-let [[_ fmt] (re-matches #"commodity (.*)" line)]
     {:format fmt}))
+
+(defn parse-budget-line [x]
+  (if-let [[_ _] (re-matches #"~.*" x)]
+    {:some-budget ""}))
 
 (defn parse-transaction-header [x]
   (if-let [[_ date description]
@@ -48,7 +52,7 @@
     false))
 
 (defn reduce-fn [acc line]
-  (if-let [header ((some-fn parse-include-line parse-commodity-line) line)]
+  (if-let [header ((some-fn parse-include-line parse-commodity-line parse-budget-line) line)]
     (update acc :headers conj header)
     (if-let [transaction-header (parse-transaction-header line)]
       (add-transaction acc transaction-header)
