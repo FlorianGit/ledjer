@@ -86,30 +86,6 @@
    :date date
    :postings (map (partial apply make-posting) postings)})
 
-(defn c* [fns]
-  "Cartesian product of functions"
-  (fn [values]
-    (mapv (fn [f x] (f x)) fns values)))
-
-(defn cmap [fns coll]
-  "Map the cartesian product of fns over coll"
-  (mapv (c* fns) coll))
-
-(def data
-  [["2021/01/01" "Buy an apple"
-    [["expenses:groceries" 0.45M]
-     ["assets:checking" -0.45M]]]
-   ["2021/01/15" "Buy a lemon"
-    [["expenses:lemons" 0.30M]
-     ["assets:checking" -0.30M]]]
-   ["2021/02/01" "Buy another apple"
-    [["expenses:groceries" 0.45M]
-     ["assets:checking" -0.45M]]]
-   ["2021/02/03" "Buy a red grapefruit"
-    [["expenses:grapegruits" 0.80M]
-     ["assets:checking" -0.80M]]]])
-
-
 (defn monthly [transactions]
   (->> transactions
        (group-by #(as (:date %) :year :month-of-year))))
@@ -154,19 +130,6 @@
 
 (defn matrixmap [f m]
   (mapv (partial mapv f) m))
-
-(comment
-  (defn table->string [data]
-    "Converts a vector of vectors (a vector of rows) to a string representation"
-    (let [columns (transpose data)
-          widths (->> columns
-                      (matrixmap str)
-                      (matrixmap count)
-                      (mapv (partial apply max)))]
-      (string/join \newline (for [row data]
-                              (string/join " | " (mapv rpad widths row))))))
-  
-  )
 
 (defn table->string [rheaders cheaders data]
   (let [first-width (->> rheaders
