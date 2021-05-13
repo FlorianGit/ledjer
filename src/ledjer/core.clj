@@ -8,17 +8,6 @@
             [java-time :refer [local-date-time local-date as truncate-to]])
   (:gen-class))
 
-(defn add-transaction [journal t]
-  (update journal :transactions conj t))
-
-(defn add-posting [journal p]
-  "Add posting p to last transaction of journal. Throws exception if there is no last transaction."
-  (let [transactions (:transactions journal)
-        last-transaction (peek transactions)
-        new-transaction (update last-transaction :postings conj p)]
-        (if last-transaction (assoc journal :transactions (conj (pop transactions) new-transaction)))))
-
-
 (defn parse-include-line [line]
   (if-let [[_ file-name] (re-matches #"include (\S+)" line)]
     {:include file-name}))
@@ -53,32 +42,6 @@
 
 (defn tokenize [contents]
   (map (some-fn parse-include-line parse-commodity-line parse-budget-header parse-transaction-header parse-posting parse-empty-line) contents))
-
-(defn reduce-fn [acc line]
-  (if-let [header ((some-fn parse-include-line parse-commodity-line parse-budget-header) line)]
-    (update acc :headers conj header)
-    (if-let [transaction-header (parse-transaction-header line)]
-      (add-transaction acc transaction-header)
-      (if-let [posting (parse-posting line)]
-        (add-posting acc posting)
-        acc))))
-
-(comment
-  (defn fsm [commands]
-    (letfn
-      [(parse-general [acc [line & r]]
-         #(if line
-            (if-let [header ((some-fn parse-include-line parse-commodity-line) line)]
-              (parse-general (update acc :headers conj header) r)
-              (if-let [transactions-header (parse-transaction-header line)]
-                (parse-transaction acc (conj r line))
-                (if-let [empty-line (parse-empty-line line)]
-                  (parse-general acc r)
-                  (assoc acc :error true))))
-            acc))
-       (parse-transaction [acc [line & r]]
-         acc line)]
-      (trampoline parse-general {:headers [] :transactions []} commands))))
 
 (defn fsm [tokens]
   "Finite state machine to parse the tokens of a ledger file into the internal representation. Consists of the following functions:
@@ -133,7 +96,8 @@
 (defn read-ledger-file [contents]
   (->> contents
        (string/split-lines)
-       (reduce reduce-fn {:headers [] :transactions []})))
+       (tokenize)
+       (fsm)))
 
 (defn accounts [journal]
   (->> (:transactions journal)
