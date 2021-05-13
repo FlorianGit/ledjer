@@ -29,12 +29,8 @@
 
 (defn parse-posting [x]
   (if-let [[_ account amount]
-        (re-matches #"\s*([\S:]+)\s+(.*) EUR" x)]
-    {:account account :amount (bigdec (edn/read-string amount))}))
-
-(defn parse-account-name [x]
-  (if-let [matches (re-seq #"(\w+)" x)]
-    (map #(nth % 1) matches)))
+        (re-matches #"\s+([\S:]+)\s+(.*) EUR" x)]
+    {:posting true :account account :amount (bigdec (edn/read-string amount))}))
 
 (defn parse-empty-line [x]
   (if (re-matches #"" x)
@@ -75,7 +71,7 @@
           (parse-budget acc (assoc (assoc b-acc :period (:budget t))
                                    :postings []) ts)
           (:account t)
-          (parse-budget acc (update b-acc :postings conj t) ts)
+          (parse-budget acc (update b-acc :postings conj (dissoc t :posting)) ts)
           :else
           (parse-general (update acc :budgets conj b-acc) all)))
 
@@ -86,7 +82,10 @@
             (parse-transaction acc (assoc (dissoc t :transaction-header)
                                           :postings []) ts)
             (:account t)
-            (parse-transaction acc (update t-acc :postings conj t) ts)
+            (parse-transaction acc
+                               (update t-acc :postings conj
+                                           (dissoc t :posting))
+                               ts)
             :else
             (parse-general (update acc :transactions conj t-acc) all))
           (update acc :transactions conj t-acc)))]

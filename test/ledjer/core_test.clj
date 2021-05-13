@@ -29,7 +29,7 @@
            (parse-transaction-header "2021/01/02 Shopping"))))
 
   (testing "parse-posting"
-    (is (= {:account "expenses:shoes" :amount 100.0M}
+    (is (= {:posting true :account "expenses:shoes" :amount 100.0M}
            (parse-posting "   expenses:shoes    100.00 EUR"))))
 
   (testing "parse-empty-line"
@@ -42,14 +42,14 @@
                  {:empty-line true}
                  {:commodity "100.00 EUR"}
                  {:budget "monthly"}
-                 {:account "expenses:groceries" :amount 300.0M}
-                 {:account "expenses:games" :amount 20.0M}
+                 {:posting true :account "expenses:groceries" :amount 300.0M}
+                 {:posting true :account "expenses:games" :amount 20.0M}
                  {:empty-line true}
                  {:transaction-header true
                   :date (local-date "yyyy/MM/dd" "2021/01/01")
                   :description "apples"}
-                 {:account "expenses:groceries" :amount 5.0M}
-                 {:account "assets:checking" :amount -5.0M})
+                 {:posting true :account "expenses:groceries" :amount 5.0M}
+                 {:posting true :account "assets:checking" :amount -5.0M})
            (tokenize ["include somefile.extension"
                       "include some-other-file.extension"
                       ""
