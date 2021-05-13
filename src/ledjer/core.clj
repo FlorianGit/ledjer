@@ -25,11 +25,11 @@
 
 (defn parse-commodity-line [line]
   (if-let [[_ fmt] (re-matches #"commodity (.*)" line)]
-    {:format fmt}))
+    {:commodity fmt}))
 
-(defn parse-budget-line [x]
-  (if-let [[_ _] (re-matches #"~.*" x)]
-    {:some-budget ""}))
+(defn parse-budget-header [x]
+  (if-let [[_ period] (re-matches #"~(.*)" x)]
+    {:budget period}))
 
 (defn parse-transaction-header [x]
   (if-let [[_ date description]
@@ -48,11 +48,10 @@
 
 (defn parse-empty-line [x]
   (if (re-matches #"" x)
-    true
-    false))
+    {:empty-line true}))
 
 (defn reduce-fn [acc line]
-  (if-let [header ((some-fn parse-include-line parse-commodity-line parse-budget-line) line)]
+  (if-let [header ((some-fn parse-include-line parse-commodity-line parse-budget-header) line)]
     (update acc :headers conj header)
     (if-let [transaction-header (parse-transaction-header line)]
       (add-transaction acc transaction-header)
