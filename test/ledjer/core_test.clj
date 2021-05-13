@@ -35,7 +35,7 @@
            (parse-price-line "P 2021/02/03 VEV 12.34 EUR"))))
 
   (testing "parse-posting"
-    (is (= {:posting true :account "expenses:shoes" :amount 100.0M}
+    (is (= {:posting true :account "expenses:shoes" :amount {:EUR 100.0M}}
            (parse-posting "   expenses:shoes    100.00 EUR"))))
 
   (testing "parse-empty-line"
@@ -48,21 +48,21 @@
                  {:empty-line true}
                  {:commodity "100.00 EUR"}
                  {:budget "monthly"}
-                 {:posting true :account "expenses:groceries" :amount 300.0M}
-                 {:posting true :account "expenses:games" :amount 20.0M}
+                 {:posting true :account "expenses:groceries" :amount {:EUR 300.0M}}
+                 {:posting true :account "expenses:games" :amount {:COIN 20.0M}}
                  {:empty-line true}
                  {:transaction-header true
                   :date (local-date "yyyy/MM/dd" "2021/01/01")
                   :description "apples"}
-                 {:posting true :account "expenses:groceries" :amount 5.0M}
-                 {:posting true :account "assets:checking" :amount -5.0M})
+                 {:posting true :account "expenses:groceries" :amount {:EUR 5.0M}}
+                 {:posting true :account "assets:checking" :amount {:EUR -5.0M}})
            (tokenize ["include somefile.extension"
                       "include some-other-file.extension"
                       ""
                       "commodity 100.00 EUR"
                       "~monthly"
                       "   expenses:groceries 300.00 EUR"
-                      "   expenses:games      20.00 EUR"
+                      "   expenses:games      20.00 COIN"
                       ""
                       "2021/01/01 apples"
                       "   expenses:groceries   5.00 EUR"
@@ -74,17 +74,21 @@
                       {:commodity "100.00 EUR"}]
             :transactions [{:date (local-date "yyyy/MM/dd" "2021/01/01")
                             :description "Buy apples"
-                            :postings [{:account "expenses:groceries", :amount 5.0M}
-                                       {:account "assets:checking", :amount -5.0M}]}
+                            :postings [{:account "expenses:groceries"
+                                        :amount {:EUR 5.0M}}
+                                       {:account "assets:checking"
+                                        :amount {:EUR -5.0M}}]}
                            {:date (local-date "yyyy/MM/dd" "2021/01/02")
                             :description "Buy more apples"
-                            :postings [{:account "expenses:groceries", :amount 7.5M}
-                                       {:account "assets:checking", :amount -7.5M}]}]
+                            :postings [{:account "expenses:groceries"
+                                        :amount {:COIN 7.5M}}
+                                       {:account "assets:checking"
+                                        :amount {:COIN -7.5M}}]}]
             :budgets [{:period "monthly"
                       :postings [{:account "expenses:groceries"
-                                  :amount 150.0M}
+                                  :amount {:EUR 150.0M}}
                                  {:account "expenses:apples"
-                                  :amount 50.0M}]}]
+                                  :amount {:EUR 50.0M}}]}]
             :prices {:VEV (list {:date (local-date "yyyy/MM/dd" "2021/02/03")
                                  :price 12.34M})}}
            (fsm (tokenize ["include something"
@@ -102,8 +106,8 @@
                            "  assets:checking    -5.00 EUR"
                            ""
                            "2021/01/02 Buy more apples"
-                           "   expenses:groceries 7.50 EUR"
-                           "   assets:checking   -7.50 EUR"
+                           "   expenses:groceries 7.50 COIN"
+                           "   assets:checking   -7.50 COIN"
                            ])))))
 
   (testing "table->string"

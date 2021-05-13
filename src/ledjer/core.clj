@@ -28,9 +28,11 @@
      :description description}))
 
 (defn parse-posting [x]
-  (if-let [[_ account amount]
-        (re-matches #"\s+([\S:]+)\s+(.*) EUR" x)]
-    {:posting true :account account :amount (bigdec (edn/read-string amount))}))
+  (if-let [[_ account amount unit]
+        (re-matches #"\s+([\S:]+)\s+(-?\d+\.?\d*) (\S+)" x)]
+    {:posting true
+     :account account
+     :amount {(keyword unit) (bigdec (edn/read-string amount))}}))
 
 (defn parse-empty-line [x]
   (if (re-matches #"" x)
@@ -120,10 +122,14 @@
       (distinct)
       (sort)))
 
+(defn amount->str [amount]
+  (string/join ", " (map (fn [[k v]] (str v " " (name k))) amount)))
+
 (defn balancesheet [transactions]
   (->> transactions
        (fmap (partial map :amount))
-       (fmap (partial apply +))))
+       (fmap #(apply merge-with + %))
+       (fmap amount->str)))
 
 (defn make-posting [account amount]
   {:account account :amount amount})
