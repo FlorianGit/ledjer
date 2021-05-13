@@ -34,7 +34,8 @@
 (defn parse-transaction-header [x]
   (if-let [[_ date description]
         (re-matches #"(\d\d\d\d/\d\d/\d\d) (.*)" x)]
-    {:date (local-date "yyyy/MM/dd" date)
+    {:transaction-header true
+     :date (local-date "yyyy/MM/dd" date)
      :description description}))
 
 (defn parse-posting [x]
@@ -61,6 +62,59 @@
       (if-let [posting (parse-posting line)]
         (add-posting acc posting)
         acc))))
+
+(comment
+  (defn fsm [commands]
+    (letfn
+      [(parse-general [acc [line & r]]
+         #(if line
+            (if-let [header ((some-fn parse-include-line parse-commodity-line) line)]
+              (parse-general (update acc :headers conj header) r)
+              (if-let [transactions-header (parse-transaction-header line)]
+                (parse-transaction acc (conj r line))
+                (if-let [empty-line (parse-empty-line line)]
+                  (parse-general acc r)
+                  (assoc acc :error true))))
+            acc))
+       (parse-transaction [acc [line & r]]
+         acc line)]
+      (trampoline parse-general {:headers [] :transactions []} commands))))
+
+(defn fsm [tokens]
+  "Finite state machine to parse the tokens of a ledger file into the internal representation. Consists of the following functions:
+
+  parse-general: parse singular tokens or delegate parsing of the next group of tokens in case of a header
+
+  parse-transaction: parse a single transaction"
+  (letfn
+    [(parse-general [acc [t & ts :as all]]
+       #(if t
+          (cond
+            (:include t)
+            (parse-general (update acc :headers conj t) ts)
+            (:commodity t)
+            (parse-general (update acc :headers conj t) ts)
+            (:empty-line t)
+            (parse-general acc ts)
+            (:transaction-header t)
+            (parse-transaction acc {} all)
+            :else
+            nil)
+          acc))
+
+     (parse-transaction [acc t-acc [t & ts :as all]]
+       #(if t
+          (cond
+            (:transaction-header t)
+            (parse-transaction acc (assoc (dissoc t :transaction-header)
+                                          :postings []) ts)
+            (:account t)
+            (parse-transaction acc (update t-acc :postings conj t) ts)
+            :else
+            (parse-general (update acc :transactions conj t-acc) all))
+          (update acc :transactions conj t-acc)))]
+
+    (trampoline parse-general {:headers [] :transactions []} tokens)))
 
 (defn read-ledger-file [contents]
   (->> contents

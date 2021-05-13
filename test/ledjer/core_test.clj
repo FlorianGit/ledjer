@@ -23,7 +23,8 @@
     (is (= {:budget "monthly"} (parse-budget-header "~monthly"))))
 
   (testing "parse-transaction-header"
-    (is (= {:date (local-date "yyyy/MM/dd" "2021/01/02")
+    (is (= {:transaction-header true
+            :date (local-date "yyyy/MM/dd" "2021/01/02")
             :description "Shopping"}
            (parse-transaction-header "2021/01/02 Shopping"))))
 
@@ -44,7 +45,8 @@
                  {:account "expenses:groceries" :amount 300.0M}
                  {:account "expenses:games" :amount 20.0M}
                  {:empty-line true}
-                 {:date (local-date "yyyy/MM/dd" "2021/01/01")
+                 {:transaction-header true
+                  :date (local-date "yyyy/MM/dd" "2021/01/01")
                   :description "apples"}
                  {:account "expenses:groceries" :amount 5.0M}
                  {:account "assets:checking" :amount -5.0M})
@@ -59,6 +61,31 @@
                       "2021/01/01 apples"
                       "   expenses:groceries   5.00 EUR"
                       "   assets:checking     -5.00 EUR"]))))
+
+  (testing "fsm"
+    (is (= {:headers [{:include "something"}
+                      {:include "something"}
+                      {:commodity "100.00 EUR"}]
+            :transactions [{:date (local-date "yyyy/MM/dd" "2021/01/01")
+                            :description "Buy apples"
+                            :postings [{:account "expenses:groceries", :amount 5.0M}
+                                       {:account "assets:checking", :amount -5.0M}]}
+                           {:date (local-date "yyyy/MM/dd" "2021/01/02")
+                            :description "Buy more apples"
+                            :postings [{:account "expenses:groceries", :amount 7.5M}
+                                       {:account "assets:checking", :amount -7.5M}]}]}
+           (fsm (tokenize ["include something"
+                           "include something"
+                           "commodity 100.00 EUR"
+                           ""
+                           "2021/01/01 Buy apples"
+                           "  expenses:groceries  5.00 EUR"
+                           "  assets:checking    -5.00 EUR"
+                           ""
+                           "2021/01/02 Buy more apples"
+                           "   expenses:groceries 7.50 EUR"
+                           "   assets:checking   -7.50 EUR"
+                           ])))))
 
   (testing "table->string"
     (let [rheaders ["aap" "noot" "mies"]
