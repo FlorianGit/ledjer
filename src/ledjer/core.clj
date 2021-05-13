@@ -76,7 +76,6 @@
        (fmap (partial map :amount))
        (fmap (partial apply +))))
 
-
 (defn make-posting [account amount]
   {:account account :amount amount})
 
@@ -89,19 +88,13 @@
   (->> transactions
        (group-by #(as (:date %) :year :month-of-year))))
 
-(def transactions
-  (-> "2021.journal"
-      (slurp)
-      (read-ledger-file)
-      (:transactions)))
-
 (defn account-view [transactions]
   (->> transactions
        (mapcat (fn [{date :date
                      description :description
                      postings :postings}]
                  (for [p postings]
-                   (let [{ account :account} p]
+                   (let [{account :account} p]
                      {account [(assoc p :date date :description description)]}))))
        (apply merge-with into)))
 
@@ -112,7 +105,7 @@
   (format (str "%-" length "s") s))
 
 (defn make-report
-  "Build a make-report of the transactions. Output format is a map with [account period] as key and the aggregated value as value."
+  "Build a report of the transactions. Output format is a map with [account period] as key and the aggregated value as value."
   ([transactions] (make-report balancesheet transactions))
   ([make-report-fn transactions]
    (->> transactions
