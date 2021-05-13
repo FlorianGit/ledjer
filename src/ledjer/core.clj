@@ -85,6 +85,8 @@
 
   parse-general: parse singular tokens or delegate parsing of the next group of tokens in case of a header
 
+  parse-budget: parse a budget headers and the corresponding postings
+
   parse-transaction: parse a single transaction"
   (letfn
     [(parse-general [acc [t & ts :as all]]
@@ -96,11 +98,23 @@
             (parse-general (update acc :headers conj t) ts)
             (:empty-line t)
             (parse-general acc ts)
+            (:budget t)
+            (parse-budget acc {} all)
             (:transaction-header t)
             (parse-transaction acc {} all)
             :else
             nil)
           acc))
+
+     (parse-budget [acc b-acc [t & ts :as all]]
+       #(cond
+          (:budget t)
+          (parse-budget acc (assoc (assoc b-acc :period (:budget t))
+                                   :postings []) ts)
+          (:account t)
+          (parse-budget acc (update b-acc :postings conj t) ts)
+          :else
+          (parse-general (update acc :budgets conj b-acc) all)))
 
      (parse-transaction [acc t-acc [t & ts :as all]]
        #(if t

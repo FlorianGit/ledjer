@@ -73,10 +73,19 @@
                            {:date (local-date "yyyy/MM/dd" "2021/01/02")
                             :description "Buy more apples"
                             :postings [{:account "expenses:groceries", :amount 7.5M}
-                                       {:account "assets:checking", :amount -7.5M}]}]}
+                                       {:account "assets:checking", :amount -7.5M}]}]
+            :budgets [{:period "monthly"
+                      :postings [{:account "expenses:groceries"
+                                  :amount 150.0M}
+                                 {:account "expenses:apples"
+                                  :amount 50.0M}]}]}
            (fsm (tokenize ["include something"
                            "include something"
                            "commodity 100.00 EUR"
+                           ""
+                           "~monthly"
+                           "  expenses:groceries   150.00 EUR"
+                           "  expenses:apples       50.00 EUR"
                            ""
                            "2021/01/01 Buy apples"
                            "  expenses:groceries  5.00 EUR"
