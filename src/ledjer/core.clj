@@ -50,6 +50,9 @@
   (if (re-matches #"" x)
     {:empty-line true}))
 
+(defn tokenize [contents]
+  (map (some-fn parse-include-line parse-commodity-line parse-budget-header parse-transaction-header parse-posting parse-empty-line) contents))
+
 (defn reduce-fn [acc line]
   (if-let [header ((some-fn parse-include-line parse-commodity-line parse-budget-header) line)]
     (update acc :headers conj header)

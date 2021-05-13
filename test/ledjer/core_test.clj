@@ -35,6 +35,31 @@
     (is (= {:empty-line true} (parse-empty-line ""))
         (= nil (parse-empty-line "abcd"))))
 
+  (testing "tokenize"
+    (is (= (list {:include "somefile.extension"}
+                 {:include "some-other-file.extension"}
+                 {:empty-line true}
+                 {:commodity "100.00 EUR"}
+                 {:budget "monthly"}
+                 {:account "expenses:groceries" :amount 300.0M}
+                 {:account "expenses:games" :amount 20.0M}
+                 {:empty-line true}
+                 {:date (local-date "yyyy/MM/dd" "2021/01/01")
+                  :description "apples"}
+                 {:account "expenses:groceries" :amount 5.0M}
+                 {:account "assets:checking" :amount -5.0M})
+           (tokenize ["include somefile.extension"
+                      "include some-other-file.extension"
+                      ""
+                      "commodity 100.00 EUR"
+                      "~monthly"
+                      "   expenses:groceries 300.00 EUR"
+                      "   expenses:games      20.00 EUR"
+                      ""
+                      "2021/01/01 apples"
+                      "   expenses:groceries   5.00 EUR"
+                      "   assets:checking     -5.00 EUR"]))))
+
   (testing "table->string"
     (let [rheaders ["aap" "noot" "mies"]
           cheaders ["bananen" "citroenen" "limoenen"]
