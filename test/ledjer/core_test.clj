@@ -28,6 +28,12 @@
             :description "Shopping"}
            (parse-transaction-header "2021/01/02 Shopping"))))
 
+  (testing "parse-price-line"
+    (is (= {:price 12.34M
+            :commodity "VEV"
+            :date (local-date "yyyy/MM/dd" "2021/02/03")}
+           (parse-price-line "P 2021/02/03 VEV 12.34 EUR"))))
+
   (testing "parse-posting"
     (is (= {:posting true :account "expenses:shoes" :amount 100.0M}
            (parse-posting "   expenses:shoes    100.00 EUR"))))
@@ -78,10 +84,14 @@
                       :postings [{:account "expenses:groceries"
                                   :amount 150.0M}
                                  {:account "expenses:apples"
-                                  :amount 50.0M}]}]}
+                                  :amount 50.0M}]}]
+            :prices {:VEV (list {:date (local-date "yyyy/MM/dd" "2021/02/03")
+                                 :price 12.34M})}}
            (fsm (tokenize ["include something"
                            "include something"
                            "commodity 100.00 EUR"
+                           ""
+                           "P 2021/02/03 VEV 12.34 EUR"
                            ""
                            "~monthly"
                            "  expenses:groceries   150.00 EUR"

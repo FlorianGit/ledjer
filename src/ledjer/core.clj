@@ -36,8 +36,15 @@
   (if (re-matches #"" x)
     {:empty-line true}))
 
+(defn parse-price-line [x]
+  (if-let [[_ date commodity price]
+           (re-matches #"P (\d\d\d\d/\d\d/\d\d) (\S+) (.*) EUR" x)]
+    {:date (local-date "yyyy/MM/dd" date)
+     :commodity commodity
+     :price (bigdec (edn/read-string price))}))
+
 (defn tokenize [contents]
-  (map (some-fn parse-include-line parse-commodity-line parse-budget-header parse-transaction-header parse-posting parse-empty-line) contents))
+  (map (some-fn parse-include-line parse-commodity-line parse-budget-header parse-transaction-header parse-posting parse-empty-line parse-price-line) contents))
 
 (defn fsm [tokens]
   "Finite state machine to parse the tokens of a ledger file into the internal representation. Consists of the following functions:
@@ -53,6 +60,12 @@
           (cond
             (:include t)
             (parse-general (update acc :headers conj t) ts)
+            (:price t)
+            (parse-general (update-in acc
+                                      [:prices (keyword (:commodity t))]
+                                      conj
+                                      (select-keys t [:date :price]))
+                           ts)
             (:commodity t)
             (parse-general (update acc :headers conj t) ts)
             (:empty-line t)
@@ -90,7 +103,9 @@
             (parse-general (update acc :transactions conj t-acc) all))
           (update acc :transactions conj t-acc)))]
 
-    (trampoline parse-general {:headers [] :transactions []} tokens)))
+    (trampoline parse-general {:headers []
+                               :prices {}
+                               :transactions []} tokens)))
 
 (defn read-ledger-file [contents]
   (->> contents
