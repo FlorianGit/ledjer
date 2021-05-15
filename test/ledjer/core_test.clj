@@ -36,7 +36,9 @@
 
   (testing "parse-posting"
     (is (= {:posting true :account "expenses:shoes" :amount {:EUR 100.0M}}
-           (parse-posting "   expenses:shoes    100.00 EUR"))))
+           (parse-posting "   expenses:shoes    100.00 EUR"))
+        (= {:posting true :account "expenses:shoes" :amount {:STOCK 100.0M :purchase-price {:EUR 1}}}
+           (parse-posting "   assets:stocks    100.00 STOCK @@ 1 EUR")) ))
 
   (testing "parse-empty-line"
     (is (= {:empty-line true} (parse-empty-line ""))

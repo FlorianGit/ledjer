@@ -28,11 +28,17 @@
      :description description}))
 
 (defn parse-posting [x]
-  (if-let [[_ account amount unit]
-        (re-matches #"\s+([\S:]+)\s+(-?\d+\.?\d*) (\S+)" x)]
-    {:posting true
-     :account account
-     :amount {(keyword unit) (bigdec (edn/read-string amount))}}))
+  (let [[fst scnd] (string/split x #" @@ ")
+        posting (if-let [[_ account amount unit]
+                         (re-matches #"\s+([\S:]+)\s+(-?\d+\.?\d*) (\S+)" fst)]
+                  {:posting true
+                   :account account
+                   :amount {(keyword unit) (bigdec (edn/read-string amount))}})]
+    (if scnd
+      (if-let [[_ amount unit] (re-matches #"(-?\d+\.?\d*) (\S+)" scnd)]
+        (assoc posting :purchase-price {(keyword unit) (bigdec (edn/read-string amount))})
+        posting)
+      posting)))
 
 (defn parse-empty-line [x]
   (if (re-matches #"" x)
