@@ -4,6 +4,7 @@
             [clojure.string :as string]
             [clojure.tools.cli :refer [parse-opts]]
             [environ.core :refer [env]]
+            [instaparse.core :as insta]
             [lentes.core :as l]
             [java-time :refer [local-date-time local-date as truncate-to]])
   (:gen-class))
@@ -273,3 +274,106 @@
         (cond
           (#{"accounts"} action) (accounts! journal options)
           (#{"balancesheet" "bs"} action) (balancesheet! journal options))))))
+
+(def parser (insta/parser
+              "S = (INCLUDE-LINE|COMMODITY-LINE|<EMPTY-LINE>|TRANSACTION)*
+              INCLUDE-LINE = <'include '> WORD <EOL>
+              COMMODITY-LINE = <'commodity '> NUMBER <WS> WORD <EOL>
+              EMPTY-LINE = <EOL>
+              TRANSACTION = TRANSACTION-HEADER POSTING+
+              TRANSACTION-HEADER = DATE <WS> DESCRIPTION <EOL>
+              POSTING = <WS> ACCOUNT (<WS> AMOUNT PURCHASE_PRICE?)? <EOL>
+              AMOUNT = NUMBER <WS> WORD
+              PURCHASE_PRICE = <' @@ '> NUMBER <WS> WORD
+              DATE = #'\\d\\d\\d\\d/\\d\\d/\\d\\d'
+              DESCRIPTION = #'[^\r\n]*'
+              ACCOUNT = #'[\\S:]+'
+
+              WS = #'\\s+'
+              NUMBER = #'-?\\d+\\.?\\d*'
+              WORD = #'\\S*'
+              EOL = '\\r'?'\\n'"))
+
+(defn read-word [node]
+  (if (= :WORD (first node))
+    (second node)))
+
+(defn read-number [node]
+  (if (= :NUMBER (first node))
+    (bigdec (edn/read-string (second node)))))
+
+(defn read-date [node]
+  (let [[id date] node]
+    (if (= :DATE id)
+      (local-date "yyyy/MM/dd" date))))
+
+(defn read-description [node]
+  (let [[id desc] node]
+    (if (= :DESCRIPTION id)
+      desc)))
+
+(defn read-account [node]
+  (let [[id value] node]
+    (if (= :ACCOUNT id)
+      value)))
+
+(defn read-purchase-price [node]
+  (let [[id number word] node]
+    (if (= :PURCHASE-PRICE id)
+      {(keyword (read-word word)) (read-number number)})))
+
+(defn read-amount [node]
+  (let [[id number word] node]
+    (if (= :AMOUNT id)
+      {(keyword (read-word word)) (read-number number)})))
+
+(defn read-posting [node]
+  (let [[id account amount purchase-price] node]
+    (if (= :POSTING id)
+      (let [p {:account (read-account account)
+               :amount (read-amount amount)}]
+        (if purchase-price
+          (assoc p :purchase-price (read-purchase-price purchase-price))
+          p)))))
+
+(defn read-transaction-header [node]
+  (let [[id date description] node]
+    (if (= :TRANSACTION-HEADER id)
+      {:date (read-date date)
+       :description (read-description description)})))
+
+(defn read-transaction [node]
+  (let [[id header & postings] node]
+    (if (= :TRANSACTION id)
+      (let [t (read-transaction-header header)]
+        (assoc t :postings (map read-posting postings))))))
+
+(defn read-include [node]
+  (let [[id word] node]
+    (if (= :INCLUDE-LINE id)
+      {:include (read-word word)})))
+
+(defn read-commodity [node]
+  (let [[id number word] node]
+    (if (= :COMMODITY-LINE id)
+      {:commodity {(keyword (read-word word)) (read-number number)}})))
+
+(defn read-start [node]
+  (let [[id & lines] node]
+    (if (= :S id)
+      (map (some-fn read-include read-transaction read-commodity) lines))))
+
+(comment "TODO: add tests, add price, add budget")
+(read-start
+  (parser (string/join "\n" ["include some.file"
+                             "include someother.file"
+                             "commodity 100.00 EUR"
+                             ""
+                             "2021/01/01 buy apples"
+                             "  expenses:groceries 1 EUR"
+                             "  assets:checking   -1 EUR"
+                             ""
+                             "2021/01/01 buy apples"
+                             "  assets:apples     2 APPLE @@ 1 EUR"
+                             "  assets:checking"
+                             ""])))
