@@ -79,37 +79,43 @@
             (:empty-line t)
             (parse-general acc ts)
             (:budget t)
-            (parse-budget acc {} all)
+            (parse-budget acc all)
             (:transaction-header t)
-            (parse-transaction acc {} all)
+            (parse-transaction acc all)
             :else
             nil)
           acc))
 
-     (parse-budget [acc b-acc [t & ts :as all]]
-       #(cond
-          (:budget t)
-          (parse-budget acc (assoc (assoc b-acc :period (:budget t))
-                                   :postings []) ts)
-          (:account t)
-          (parse-budget acc (update b-acc :postings conj (dissoc t :posting)) ts)
-          :else
-          (parse-general (update acc :budgets conj b-acc) all)))
-
-     (parse-transaction [acc t-acc [t & ts :as all]]
-       #(if t
+     (parse-budget [acc tokens]
+       #(loop [acc acc
+               b-acc {}
+               [t & ts :as all] tokens]
           (cond
-            (:transaction-header t)
-            (parse-transaction acc (assoc (dissoc t :transaction-header)
-                                          :postings []) ts)
+            (:budget t)
+            (recur acc (assoc (assoc b-acc :period (:budget t))
+                                     :postings []) ts)
             (:account t)
-            (parse-transaction acc
-                               (update t-acc :postings conj
-                                           (dissoc t :posting))
-                               ts)
+            (recur acc (update b-acc :postings conj (dissoc t :posting)) ts)
             :else
-            (parse-general (update acc :transactions conj t-acc) all))
-          (update acc :transactions conj t-acc)))]
+            (parse-general (update acc :budgets conj b-acc) all))))
+
+     (parse-transaction [acc tokens]
+       #(loop [acc acc
+               t-acc {}
+               [t & ts :as all] tokens]
+          (if t
+            (cond
+              (:transaction-header t)
+              (recur acc (assoc (dissoc t :transaction-header)
+                                :postings []) ts)
+              (:account t)
+              (recur acc
+                     (update t-acc :postings conj
+                             (dissoc t :posting))
+                     ts)
+              :else
+              (parse-general (update acc :transactions conj t-acc) all))
+          (update acc :transactions conj t-acc))))]
 
     (trampoline parse-general {:headers []
                                :prices {}
